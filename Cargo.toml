@@ -1,7 +1,14 @@
 [package]
 name = "web-codecs"
+description = "WASM bindings for Web Codecs"
+authors = ["Luke Curley"]
+repository = "https://github.com/kixelated/web-codecs-rs"
+license = "MIT OR Apache-2.0"
+
 version = "0.1.0"
 edition = "2021"
+
+categories = ["wasm", "multimedia", "web-programming", "api-bindings"]
 
 [dependencies]
 wasm-bindgen = "0.2"
