@@ -1,15 +1,7 @@
-pub struct DecodedFrame {
-    inner: web_sys::VideoFrame,
-}
-
-impl From<web_sys::VideoFrame> for DecodedFrame {
-    fn from(inner: web_sys::VideoFrame) -> Self {
-        Self { inner }
-    }
-}
+pub type DecodedFrame = web_sys::VideoFrame;
 
 pub struct EncodedFrame {
-    pub data: Vec<u8>,
+    pub payload: bytes::Bytes,
     pub timestamp: f64,
     pub keyframe: bool,
 }

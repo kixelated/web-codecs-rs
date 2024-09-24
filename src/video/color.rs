@@ -10,22 +10,22 @@ impl ColorSpaceConfig {
     }
 
     pub fn full_range(mut self, enabled: bool) -> Self {
-        self.inner.full_range(enabled);
+        self.inner.set_full_range(enabled);
         self
     }
 
     pub fn matrix(mut self, matrix: MatrixCoefficients) -> Self {
-        self.inner.matrix(matrix.into());
+        self.inner.set_matrix(matrix.into());
         self
     }
 
     pub fn primaries(mut self, primaries: ColorPrimaries) -> Self {
-        self.inner.primaries(primaries.into());
+        self.inner.set_primaries(primaries.into());
         self
     }
 
     pub fn transfer(mut self, transfer: TransferCharacteristics) -> Self {
-        self.inner.transfer(transfer.into());
+        self.inner.set_transfer(transfer.into());
         self
     }
 }

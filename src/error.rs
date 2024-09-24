@@ -2,6 +2,9 @@ use wasm_bindgen::prelude::*;
 
 #[derive(Debug, thiserror::Error, Clone)]
 pub enum Error {
+    #[error("dropped")]
+    Dropped,
+
     #[error("unknown error: {0:?}")]
     Unknown(JsValue),
 }

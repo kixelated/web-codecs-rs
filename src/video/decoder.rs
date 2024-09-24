@@ -1,14 +1,50 @@
+use bytes::Bytes;
 use tokio::sync::{mpsc, watch};
 use wasm_bindgen::prelude::*;
 
 use super::{ColorSpaceConfig, DecodedFrame, EncodedFrame};
 use crate::Error;
 
+pub fn decoder() -> (Decoder, Decoded) {
+    let (frames_tx, frames_rx) = mpsc::unbounded_channel();
+    let (closed_tx, closed_rx) = watch::channel(Ok(()));
+    let closed_tx2 = closed_tx.clone();
+
+    let on_error = Closure::wrap(Box::new(move |e: JsValue| {
+        closed_tx.send_replace(Err(Error::from(e))).ok();
+    }) as Box<dyn FnMut(_)>);
+
+    let on_frame = Closure::wrap(Box::new(move |e: JsValue| {
+        let frame: web_sys::VideoFrame = e.unchecked_into();
+        let frame = DecodedFrame::from(frame);
+
+        if frames_tx.send(frame).is_err() {
+            closed_tx2.send_replace(Err(Error::Dropped)).ok();
+        }
+    }) as Box<dyn FnMut(_)>);
+
+    let init = web_sys::VideoDecoderInit::new(
+        on_error.as_ref().unchecked_ref(),
+        on_frame.as_ref().unchecked_ref(),
+    );
+    let inner = web_sys::VideoDecoder::new(&init).unwrap();
+
+    let decoder = Decoder {
+        inner,
+        on_error,
+        on_frame,
+    };
+
+    let decoded = Decoded {
+        frames: frames_rx,
+        closed: closed_rx,
+    };
+
+    (decoder, decoded)
+}
+
 pub struct Decoder {
     inner: web_sys::VideoDecoder,
-
-    closed: watch::Receiver<Result<(), Error>>,
-    frames: mpsc::UnboundedReceiver<DecodedFrame>,
 
     // These are held to avoid dropping them.
     #[allow(dead_code)]
@@ -18,37 +54,6 @@ pub struct Decoder {
 }
 
 impl Decoder {
-    pub fn new() -> Result<Self, Error> {
-        let (frames_tx, frames_rx) = mpsc::unbounded_channel();
-        let (closed_tx, closed_rx) = watch::channel(Ok(()));
-
-        let on_error = Closure::wrap(Box::new(move |e: JsValue| {
-            closed_tx.send_modify(|closed| {
-                *closed = Err(Error::from(e));
-            });
-        }) as Box<dyn FnMut(_)>);
-
-        let on_frame = Closure::wrap(Box::new(move |e: JsValue| {
-            let frame: web_sys::VideoFrame = e.unchecked_into();
-            let frame = DecodedFrame::from(frame);
-            frames_tx.send(frame).ok();
-        }) as Box<dyn FnMut(_)>);
-
-        let init = web_sys::VideoDecoderInit::new(
-            on_error.as_ref().unchecked_ref(),
-            on_frame.as_ref().unchecked_ref(),
-        );
-        let inner = web_sys::VideoDecoder::new(&init)?;
-
-        Ok(Self {
-            inner,
-            on_error,
-            on_frame,
-            frames: frames_rx,
-            closed: closed_rx,
-        })
-    }
-
     pub fn decode(&self, frame: EncodedFrame) -> Result<(), Error> {
         let chunk_type = match frame.keyframe {
             true => web_sys::EncodedVideoChunkType::Key,
@@ -56,19 +61,19 @@ impl Decoder {
         };
 
         let chunk = web_sys::EncodedVideoChunkInit::new(
-            &js_sys::Uint8Array::from(frame.data.as_slice()),
+            &js_sys::Uint8Array::from(frame.payload.as_ref()),
             frame.timestamp,
             chunk_type,
         );
 
         let chunk = web_sys::EncodedVideoChunk::new(&chunk)?;
-        self.inner.decode(&chunk);
+        self.inner.decode(&chunk)?;
 
         Ok(())
     }
 
     pub fn configure(&self, config: &DecoderConfig) -> Result<(), Error> {
-        self.inner.configure(&config.into());
+        self.inner.configure(&config.into())?;
         Ok(())
     }
 
@@ -91,26 +96,34 @@ impl Decoder {
         Ok(supported)
     }
 
-    pub fn reset(&self) {
-        self.inner.reset();
+    pub fn reset(&self) -> Result<(), Error> {
+        self.inner.reset()?;
+        Ok(())
     }
 
     pub fn queue_size(&self) -> u32 {
         self.inner.decode_queue_size()
     }
-
-    pub async fn decoded(&mut self) -> Result<DecodedFrame, Error> {
-        tokio::select! {
-            biased;
-            Some(frame) = self.frames.recv() => Ok(frame),
-            Ok(()) = self.closed.changed() => Err(self.closed.borrow().clone().err().unwrap()),
-        }
-    }
 }
 
 impl Drop for Decoder {
     fn drop(&mut self) {
-        self.inner.close();
+        let _ = self.inner.close();
+    }
+}
+
+pub struct Decoded {
+    frames: mpsc::UnboundedReceiver<DecodedFrame>,
+    closed: watch::Receiver<Result<(), Error>>,
+}
+
+impl Decoded {
+    pub async fn next(&mut self) -> Result<Option<DecodedFrame>, Error> {
+        tokio::select! {
+            biased;
+            frame = self.frames.recv() => Ok(frame),
+            Ok(()) = self.closed.changed() => Err(self.closed.borrow().clone().err().unwrap()),
+        }
     }
 }
 
@@ -120,7 +133,7 @@ pub struct DecoderConfig {
     coded_dimensions: Option<(u32, u32)>,
     color_space: Option<ColorSpaceConfig>,
     display_dimensions: Option<(u32, u32)>,
-    description: Option<Vec<u8>>,
+    description: Option<Bytes>,
     hardware_acceleration: Option<bool>,
     latency_optimized: bool,
 }
@@ -148,7 +161,7 @@ impl DecoderConfig {
         self
     }
 
-    pub fn description(mut self, description: Vec<u8>) -> Self {
+    pub fn description(mut self, description: Bytes) -> Self {
         self.description = Some(description);
         self
     }
@@ -171,35 +184,35 @@ impl DecoderConfig {
 
 impl From<&DecoderConfig> for web_sys::VideoDecoderConfig {
     fn from(this: &DecoderConfig) -> Self {
-        let mut config = web_sys::VideoDecoderConfig::new(&this.codec);
+        let config = web_sys::VideoDecoderConfig::new(&this.codec);
 
         if let Some((width, height)) = this.coded_dimensions {
-            config.coded_width(width);
-            config.coded_height(height);
+            config.set_coded_width(width);
+            config.set_coded_height(height);
         }
 
         if let Some((width, height)) = this.display_dimensions {
-            config.display_aspect_height(height);
-            config.display_aspect_width(width);
+            config.set_display_aspect_height(height);
+            config.set_display_aspect_width(width);
         }
 
         if let Some(description) = &this.description {
-            config.description(&js_sys::Uint8Array::from(description.as_slice()));
+            config.set_description(&js_sys::Uint8Array::from(description.as_ref()));
         }
 
         if let Some(color_space) = &this.color_space {
-            config.color_space(&color_space.into());
+            config.set_color_space(&color_space.into());
         }
 
         if let Some(preferred) = this.hardware_acceleration {
-            config.hardware_acceleration(match preferred {
+            config.set_hardware_acceleration(match preferred {
                 true => web_sys::HardwareAcceleration::PreferHardware,
                 false => web_sys::HardwareAcceleration::PreferSoftware,
             });
         }
 
         if this.latency_optimized {
-            config.optimize_for_latency(true);
+            config.set_optimize_for_latency(true);
         }
 
         config
