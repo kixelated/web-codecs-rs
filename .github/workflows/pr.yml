@@ -20,6 +20,9 @@ jobs:
           target: wasm32-unknown-unknown
           components: clippy, rustfmt
 
+      # Set RUSTFLAGS
+      - run: echo "RUSTFLAGS=--cfg=web_sys_unstable_apis" >> $GITHUB_ENV
+
       # Make sure u guys don't write bad code
       - run: cargo check
       - run: cargo clippy --no-deps
