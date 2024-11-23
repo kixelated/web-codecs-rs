@@ -5,5 +5,4 @@ mod frame;
 
 pub use color::*;
 pub use decoder::*;
-pub use encoder::*;
 pub use frame::*;

@@ -2,6 +2,12 @@ pub struct ColorSpaceConfig {
     inner: web_sys::VideoColorSpaceInit,
 }
 
+impl Default for ColorSpaceConfig {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ColorSpaceConfig {
     pub fn new() -> Self {
         Self {
@@ -9,23 +15,23 @@ impl ColorSpaceConfig {
         }
     }
 
-    pub fn full_range(mut self, enabled: bool) -> Self {
+    pub fn full_range(self, enabled: bool) -> Self {
         self.inner.set_full_range(enabled);
         self
     }
 
-    pub fn matrix(mut self, matrix: MatrixCoefficients) -> Self {
-        self.inner.set_matrix(matrix.into());
+    pub fn matrix(self, matrix: MatrixCoefficients) -> Self {
+        self.inner.set_matrix(matrix);
         self
     }
 
-    pub fn primaries(mut self, primaries: ColorPrimaries) -> Self {
-        self.inner.set_primaries(primaries.into());
+    pub fn primaries(self, primaries: ColorPrimaries) -> Self {
+        self.inner.set_primaries(primaries);
         self
     }
 
-    pub fn transfer(mut self, transfer: TransferCharacteristics) -> Self {
-        self.inner.set_transfer(transfer.into());
+    pub fn transfer(self, transfer: TransferCharacteristics) -> Self {
+        self.inner.set_transfer(transfer);
         self
     }
 }

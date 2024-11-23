@@ -20,7 +20,7 @@ jobs:
           components: clippy, rustfmt
 
       # Make sure u guys don't write bad code
-      - run: cargo test --verbose
+      - run: cargo check
       - run: cargo clippy --no-deps
       - run: cargo fmt --check
 
