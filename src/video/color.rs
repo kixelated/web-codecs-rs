@@ -1,41 +1,41 @@
-pub struct ColorSpaceConfig {
+pub struct VideoColorSpaceConfig {
     inner: web_sys::VideoColorSpaceInit,
 }
 
-impl ColorSpaceConfig {
+impl VideoColorSpaceConfig {
     pub fn new() -> Self {
         Self {
             inner: web_sys::VideoColorSpaceInit::new(),
         }
     }
 
-    pub fn full_range(mut self, enabled: bool) -> Self {
+    pub fn full_range(self, enabled: bool) -> Self {
         self.inner.set_full_range(enabled);
         self
     }
 
-    pub fn matrix(mut self, matrix: MatrixCoefficients) -> Self {
+    pub fn matrix(self, matrix: VideoMatrixCoefficients) -> Self {
         self.inner.set_matrix(matrix.into());
         self
     }
 
-    pub fn primaries(mut self, primaries: ColorPrimaries) -> Self {
+    pub fn primaries(self, primaries: VideoColorPrimaries) -> Self {
         self.inner.set_primaries(primaries.into());
         self
     }
 
-    pub fn transfer(mut self, transfer: TransferCharacteristics) -> Self {
+    pub fn transfer(self, transfer: VideoTransferCharacteristics) -> Self {
         self.inner.set_transfer(transfer.into());
         self
     }
 }
 
-impl From<&ColorSpaceConfig> for web_sys::VideoColorSpaceInit {
-    fn from(this: &ColorSpaceConfig) -> Self {
+impl From<&VideoColorSpaceConfig> for web_sys::VideoColorSpaceInit {
+    fn from(this: &VideoColorSpaceConfig) -> Self {
         this.inner.clone()
     }
 }
 
-pub type MatrixCoefficients = web_sys::VideoMatrixCoefficients;
-pub type ColorPrimaries = web_sys::VideoColorPrimaries;
-pub type TransferCharacteristics = web_sys::VideoTransferCharacteristics;
+pub type VideoMatrixCoefficients = web_sys::VideoMatrixCoefficients;
+pub type VideoColorPrimaries = web_sys::VideoColorPrimaries;
+pub type VideoTransferCharacteristics = web_sys::VideoTransferCharacteristics;
