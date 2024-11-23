@@ -5,7 +5,7 @@ use wasm_bindgen::prelude::*;
 use super::VideoColorSpaceConfig;
 use crate::{EncodedFrame, Error, VideoFrame};
 
-pub fn decoder() -> (VideoDecoder, VideoDecoded) {
+pub fn video_decoder() -> (VideoDecoder, VideoDecoded) {
     let (frames_tx, frames_rx) = mpsc::unbounded_channel();
     let (closed_tx, closed_rx) = watch::channel(Ok(()));
     let closed_tx2 = closed_tx.clone();
