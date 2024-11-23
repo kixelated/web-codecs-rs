@@ -2,6 +2,12 @@ pub struct VideoColorSpaceConfig {
     inner: web_sys::VideoColorSpaceInit,
 }
 
+impl Default for VideoColorSpaceConfig {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl VideoColorSpaceConfig {
     pub fn new() -> Self {
         Self {
@@ -15,17 +21,17 @@ impl VideoColorSpaceConfig {
     }
 
     pub fn matrix(self, matrix: VideoMatrixCoefficients) -> Self {
-        self.inner.set_matrix(matrix.into());
+        self.inner.set_matrix(matrix);
         self
     }
 
     pub fn primaries(self, primaries: VideoColorPrimaries) -> Self {
-        self.inner.set_primaries(primaries.into());
+        self.inner.set_primaries(primaries);
         self
     }
 
     pub fn transfer(self, transfer: VideoTransferCharacteristics) -> Self {
-        self.inner.set_transfer(transfer.into());
+        self.inner.set_transfer(transfer);
         self
     }
 }
