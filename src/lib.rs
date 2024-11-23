@@ -1,7 +1,10 @@
 //! WebCodecs API bindings for Rust.
 
-pub mod audio;
+mod audio;
 mod error;
-pub mod video;
+mod frame;
+mod video;
 
 pub use error::*;
+pub use frame::*;
+pub use video::*;

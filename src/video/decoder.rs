@@ -2,10 +2,10 @@ use bytes::Bytes;
 use tokio::sync::{mpsc, watch};
 use wasm_bindgen::prelude::*;
 
-use super::{ColorSpaceConfig, DecodedFrame, EncodedFrame};
-use crate::Error;
+use super::VideoColorSpaceConfig;
+use crate::{EncodedFrame, Error, VideoFrame};
 
-pub fn decoder() -> (Decoder, Decoded) {
+pub fn decoder() -> (VideoDecoder, VideoDecoded) {
     let (frames_tx, frames_rx) = mpsc::unbounded_channel();
     let (closed_tx, closed_rx) = watch::channel(Ok(()));
     let closed_tx2 = closed_tx.clone();
@@ -16,7 +16,7 @@ pub fn decoder() -> (Decoder, Decoded) {
 
     let on_frame = Closure::wrap(Box::new(move |e: JsValue| {
         let frame: web_sys::VideoFrame = e.unchecked_into();
-        let frame = DecodedFrame::from(frame);
+        let frame = VideoFrame::from(frame);
 
         if frames_tx.send(frame).is_err() {
             closed_tx2.send_replace(Err(Error::Dropped)).ok();
@@ -29,13 +29,13 @@ pub fn decoder() -> (Decoder, Decoded) {
     );
     let inner = web_sys::VideoDecoder::new(&init).unwrap();
 
-    let decoder = Decoder {
+    let decoder = VideoDecoder {
         inner,
         on_error,
         on_frame,
     };
 
-    let decoded = Decoded {
+    let decoded = VideoDecoded {
         frames: frames_rx,
         closed: closed_rx,
     };
@@ -43,7 +43,7 @@ pub fn decoder() -> (Decoder, Decoded) {
     (decoder, decoded)
 }
 
-pub struct Decoder {
+pub struct VideoDecoder {
     inner: web_sys::VideoDecoder,
 
     // These are held to avoid dropping them.
@@ -53,7 +53,7 @@ pub struct Decoder {
     on_frame: Closure<dyn FnMut(JsValue)>,
 }
 
-impl Decoder {
+impl VideoDecoder {
     pub fn decode(&self, frame: EncodedFrame) -> Result<(), Error> {
         let chunk_type = match frame.keyframe {
             true => web_sys::EncodedVideoChunkType::Key,
@@ -72,7 +72,7 @@ impl Decoder {
         Ok(())
     }
 
-    pub fn configure(&self, config: &DecoderConfig) -> Result<(), Error> {
+    pub fn configure(&self, config: &VideoDecoderConfig) -> Result<(), Error> {
         self.inner.configure(&config.into())?;
         Ok(())
     }
@@ -82,7 +82,7 @@ impl Decoder {
         Ok(())
     }
 
-    pub async fn is_supported(config: &DecoderConfig) -> Result<bool, Error> {
+    pub async fn is_supported(config: &VideoDecoderConfig) -> Result<bool, Error> {
         let res = wasm_bindgen_futures::JsFuture::from(web_sys::VideoDecoder::is_config_supported(
             &config.into(),
         ))
@@ -106,19 +106,19 @@ impl Decoder {
     }
 }
 
-impl Drop for Decoder {
+impl Drop for VideoDecoder {
     fn drop(&mut self) {
         let _ = self.inner.close();
     }
 }
 
-pub struct Decoded {
-    frames: mpsc::UnboundedReceiver<DecodedFrame>,
+pub struct VideoDecoded {
+    frames: mpsc::UnboundedReceiver<VideoFrame>,
     closed: watch::Receiver<Result<(), Error>>,
 }
 
-impl Decoded {
-    pub async fn next(&mut self) -> Result<Option<DecodedFrame>, Error> {
+impl VideoDecoded {
+    pub async fn next(&mut self) -> Result<Option<VideoFrame>, Error> {
         tokio::select! {
             biased;
             frame = self.frames.recv() => Ok(frame),
@@ -127,18 +127,18 @@ impl Decoded {
     }
 }
 
-pub struct DecoderConfig {
+pub struct VideoDecoderConfig {
     codec: String,
 
     coded_dimensions: Option<(u32, u32)>,
-    color_space: Option<ColorSpaceConfig>,
+    color_space: Option<VideoColorSpaceConfig>,
     display_dimensions: Option<(u32, u32)>,
     description: Option<Bytes>,
     hardware_acceleration: Option<bool>,
     latency_optimized: bool,
 }
 
-impl DecoderConfig {
+impl VideoDecoderConfig {
     pub fn new<T: Into<String>>(codec: T) -> Self {
         Self {
             codec: codec.into(),
@@ -166,7 +166,7 @@ impl DecoderConfig {
         self
     }
 
-    pub fn color_space(mut self, color_space: ColorSpaceConfig) -> Self {
+    pub fn color_space(mut self, color_space: VideoColorSpaceConfig) -> Self {
         self.color_space = Some(color_space);
         self
     }
@@ -182,8 +182,8 @@ impl DecoderConfig {
     }
 }
 
-impl From<&DecoderConfig> for web_sys::VideoDecoderConfig {
-    fn from(this: &DecoderConfig) -> Self {
+impl From<&VideoDecoderConfig> for web_sys::VideoDecoderConfig {
+    fn from(this: &VideoDecoderConfig) -> Self {
         let config = web_sys::VideoDecoderConfig::new(&this.codec);
 
         if let Some((width, height)) = this.coded_dimensions {
