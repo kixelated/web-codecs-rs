@@ -20,8 +20,9 @@ jobs:
           fetch-depth: 0
 
       # Instal Rust
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          target: wasm32-unknown-unknown
 
       # Run release-plz to create PRs and releases
       - name: Run release-plz
