@@ -1,8 +1,8 @@
 mod color;
 mod decoder;
 mod encoder;
+mod frame;
 
 pub use color::*;
 pub use decoder::*;
-
-pub type VideoFrame = web_sys::VideoFrame;
+pub use frame::*;
