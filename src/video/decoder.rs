@@ -2,8 +2,8 @@ use bytes::Bytes;
 use tokio::sync::{mpsc, watch};
 use wasm_bindgen::prelude::*;
 
-use super::VideoColorSpaceConfig;
-use crate::{EncodedFrame, Error, VideoFrame};
+use super::{VideoColorSpaceConfig, VideoFrame};
+use crate::{EncodedFrame, Error};
 
 pub fn video_decoder() -> (VideoDecoder, VideoDecoded) {
     let (frames_tx, frames_rx) = mpsc::unbounded_channel();
